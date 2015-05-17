@@ -1,6 +1,7 @@
 package io.cattle.platform.servicediscovery.resource;
 
 import io.cattle.platform.core.constants.InstanceConstants;
+import io.cattle.platform.docker.constants.DockerInstanceConstants;
 import io.cattle.platform.servicediscovery.api.constants.ServiceDiscoveryConstants;
 
 import java.util.ArrayList;
@@ -49,6 +50,8 @@ public class ServiceDiscoveryConfigItem {
             "external_links");
     public static final ServiceDiscoveryConfigItem LINKS = new ServiceDiscoveryConfigItem(null,
             "links", false, true);
+    public static final ServiceDiscoveryConfigItem NETWORK_MODE = new ServiceDiscoveryConfigItem(
+            DockerInstanceConstants.FIELD_NETWORK_MODE, "net");
 
     // RANCHER PARAMETERS
     public static final ServiceDiscoveryConfigItem REGISTRYCREDENTIALID = new ServiceDiscoveryConfigItem("registryCredentialId",
