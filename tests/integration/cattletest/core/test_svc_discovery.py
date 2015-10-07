@@ -2668,12 +2668,15 @@ def test_healtcheck(client, context, super_client):
     service = client.wait_success(service.activate(), 120)
     c = _wait_for_compose_instance_start(client, service, stack, "1")
     c_host_id = super_client.reload(c).instanceHostMaps()[0].hostId
+    health_c = super_client.list_healthcheckInstance(accountId=service.accountId, instanceId=c.id)
+    assert len(health_c) > 0
+    health_id = health_c[0].id
 
     def validate_container_host(host_maps):
         for host_map in host_maps:
             assert host_map.hostId != c_host_id
 
-    host_maps = _wait_health_host_count(super_client, service, 3)
+    host_maps = _wait_health_host_count(super_client, health_id, 3)
     validate_container_host(host_maps)
 
     # reactivate the service and
@@ -2681,7 +2684,7 @@ def test_healtcheck(client, context, super_client):
     service = client.wait_success(service.deactivate(), 120)
     service = client.wait_success(service.activate(), 120)
 
-    host_maps = _wait_health_host_count(super_client, service, 3)
+    host_maps = _wait_health_host_count(super_client, health_id, 3)
     validate_container_host(host_maps)
 
     # reactivate the service, add 3 more hosts and verify
@@ -2693,14 +2696,14 @@ def test_healtcheck(client, context, super_client):
     register_simulated_host(context)
     client.wait_success(service.activate(), 120)
 
-    host_maps = _wait_health_host_count(super_client, service, 3)
+    host_maps = _wait_health_host_count(super_client, health_id, 3)
     validate_container_host(host_maps)
 
 
-def _wait_health_host_count(super_client, service, count):
+def _wait_health_host_count(super_client, health_id, count):
     def active_len():
         match = super_client.\
-            list_healthcheckInstanceHostMap(accountId=service.accountId,
+            list_healthcheckInstanceHostMap(healthCheckInstanceId=health_id,
                                             state='active')
         if len(match) <= count:
             return match
