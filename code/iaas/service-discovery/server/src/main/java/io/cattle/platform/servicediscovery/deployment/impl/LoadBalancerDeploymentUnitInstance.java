@@ -30,6 +30,9 @@ public class LoadBalancerDeploymentUnitInstance extends AbstractInstanceUnit {
                 this.exposeMap = context.exposeMapDao.findInstanceExposeMap(this.instance);
             }
         }
+        if (!this.createNew()) {
+            this.setStartOnce();
+        }
     }
 
     @Override

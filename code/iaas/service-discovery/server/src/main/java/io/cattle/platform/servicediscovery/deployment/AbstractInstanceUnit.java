@@ -1,17 +1,25 @@
 package io.cattle.platform.servicediscovery.deployment;
 
 import static io.cattle.platform.core.model.tables.InstanceHostMapTable.INSTANCE_HOST_MAP;
+
+import java.util.Map;
+
+import org.apache.commons.lang.StringUtils;
+
 import io.cattle.platform.core.constants.HealthcheckConstants;
 import io.cattle.platform.core.constants.InstanceConstants;
 import io.cattle.platform.core.model.Instance;
 import io.cattle.platform.core.model.InstanceHostMap;
 import io.cattle.platform.core.model.Service;
 import io.cattle.platform.object.resource.ResourcePredicate;
+import io.cattle.platform.servicediscovery.api.constants.ServiceDiscoveryConstants;
+import io.cattle.platform.servicediscovery.api.util.ServiceDiscoveryUtil;
 import io.cattle.platform.servicediscovery.deployment.impl.DeploymentManagerImpl;
 
 public abstract class AbstractInstanceUnit extends DeploymentUnitInstance implements InstanceUnit {
 
     protected Instance instance;
+    protected boolean startOnce;
 
     protected AbstractInstanceUnit(DeploymentManagerImpl.DeploymentServiceContext context, String uuid, Service service, String launchConfigName) {
     super(context, uuid, service, launchConfigName);
@@ -66,4 +74,23 @@ public abstract class AbstractInstanceUnit extends DeploymentUnitInstance implem
         }
         return this;
     }
+    
+    @SuppressWarnings("unchecked")
+    protected void setStartOnce() {
+        Object labels = ServiceDiscoveryUtil.getLaunchConfigObject(service, launchConfigName,
+                InstanceConstants.FIELD_LABELS);
+        if (labels != null) {
+            String startOnceLabel = ((Map<String, String>) labels)
+                    .get(ServiceDiscoveryConstants.LABEL_SERVICE_CONTAINER_CREATE_ONLY);
+            if (StringUtils.equalsIgnoreCase(startOnceLabel, "true")) {
+                startOnce = true;
+            }
+        }
+    }
+    
+    @Override
+    public boolean startOnce() {
+        return startOnce;
+    }
+
 }

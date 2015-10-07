@@ -125,4 +125,9 @@ public class ExternalDeploymentUnitInstance extends DeploymentUnitInstance {
     protected DeploymentUnitInstance startImpl() {
         return this;
     }
+
+    @Override
+    public boolean startOnce() {
+        return false;
+    }
 }

@@ -33,6 +33,9 @@ public class DefaultDeploymentUnitInstance extends AbstractInstanceUnit {
         if (this.instance != null) {
             exposeMap = context.exposeMapDao.findInstanceExposeMap(this.instance);
         }
+        if (!this.createNew()) {
+            this.setStartOnce();
+        }
     }
 
     @Override
