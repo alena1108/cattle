@@ -44,6 +44,7 @@
             "create": true,
             "required": false,
             "nullable": true,
+            "maxLength": 1048576,
              "attributes" : {
                 "scheduleUpdate" : true
             }
