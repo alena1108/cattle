@@ -111,6 +111,4 @@ public abstract class DeploymentUnitInstance {
     public abstract boolean isHealthCheckInitializing();
 
     public abstract Long getServiceIndex();
-
-    public abstract void waitForScheduleStop();
 }
