@@ -4,8 +4,6 @@ import io.cattle.platform.core.addon.PublicEndpoint;
 import io.cattle.platform.core.addon.ServiceLink;
 import io.cattle.platform.core.model.Instance;
 import io.cattle.platform.core.model.Service;
-import io.cattle.platform.core.model.ServiceIndex;
-import io.cattle.platform.core.model.Subnet;
 
 import java.util.List;
 
@@ -13,7 +11,7 @@ public interface ServiceDiscoveryService {
 
     void removeServiceMaps(Service service);
 
-    List<Integer> getServiceInstanceUsedSuffixes(Service service, String launchConfigName);
+    List<Integer> getServiceInstanceUsedOrderIds(Service service, String launchConfigName);
 
     boolean isActiveService(Service service);
 
@@ -42,13 +40,4 @@ public interface ServiceDiscoveryService {
     void releasePorts(Service service);
 
     void setToken(Service service);
-
-    void removeServiceIndexes(Service service);
-
-    String allocateIpForService(Object owner, Subnet subnet, String requestedIp);
-
-    void allocateIpToServiceIndex(ServiceIndex serviceIndex);
-
-    void releaseIpFromServiceIndex(ServiceIndex serviceIndex);
-    
 }

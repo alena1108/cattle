@@ -125,9 +125,4 @@ public class ExternalDeploymentUnitInstance extends DeploymentUnitInstance {
     protected DeploymentUnitInstance startImpl() {
         return this;
     }
-
-    @Override
-    public Long getServiceIndex() {
-        return null;
-    }
 }

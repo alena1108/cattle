@@ -209,24 +209,8 @@ public class ServiceDiscoveryUtil {
         return name;
     }
 
-    public static boolean isServiceGeneratedName(Environment env, Service service, String instanceName) {
-        return instanceName.startsWith(String.format("%s_%s", env.getName(), service.getName()));
-    }
-
-    public static String getGeneratedServiceIndex(Environment env, Service service,
-            String launchConfigName,
-            String instanceName) {
-        if (!isServiceGeneratedName(env, service, instanceName)) {
-            return null;
-        }
-        Integer charAt = instanceName.length()-1;
-        for (int i = instanceName.length() - 1; i > 0; i--) {
-            if (instanceName.charAt(i) == '_') {
-                break;
-            }
-            charAt = i;
-        }
-        return instanceName.substring(charAt, instanceName.length());
+    public static boolean isServiceGeneratedName(Environment env, Service service, Instance serviceInstance) {
+        return serviceInstance.getName().startsWith(String.format("%s_%s", env.getName(), service.getName()));
     }
 
     @SuppressWarnings("unchecked")

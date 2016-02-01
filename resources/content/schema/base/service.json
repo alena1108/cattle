@@ -68,10 +68,6 @@
             "type": "array[publicEndpoint]",
             "required": false,
             "nullable": true
-        },
-        "retainIp": {
-          "type": "boolean",
-          "nullable": true
         }
     },
     "resourceActions" : {
