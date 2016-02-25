@@ -262,7 +262,7 @@ public class DnsInfoDaoImpl extends AbstractJooqDao implements DnsInfoDao {
             Map<String, String> metadataIp = new HashMap<>();
             metadataIp.put(ServiceDiscoveryDnsUtil.METADATA_IP, null);
             Map<String, Map<String, String>> resolve = new HashMap<>();
-            resolve.put(ServiceDiscoveryDnsUtil.METADATA_FQDN, metadataIp);
+            resolve.put("rancher-metadata.", metadataIp);
             DnsEntryData data = new DnsEntryData("default", resolve, null, null);
             returnData.add(data);
         }
