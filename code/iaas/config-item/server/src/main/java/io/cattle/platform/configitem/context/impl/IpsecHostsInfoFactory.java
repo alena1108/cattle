@@ -21,6 +21,9 @@ public class IpsecHostsInfoFactory extends AbstractAgentBaseContextFactory {
 
     @Override
     protected void populateContext(Agent agent, Instance instance, ConfigItem item, ArchiveContext context) {
+        if (instance == null) {
+            return;
+        }
         List<Host> hosts = objectManager.mappedChildren(instance, Host.class);
 
         if (hosts.size() > 0) {

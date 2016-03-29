@@ -63,6 +63,9 @@ public class LoadBalancerInfoFactory extends AbstractAgentBaseContextFactory {
 
     @Override
     protected void populateContext(Agent agent, Instance instance, ConfigItem item, ArchiveContext context) {
+        if (instance == null) {
+            return;
+        }
         List<? extends Service> services = instanceDao.findServicesFor(instance);
         if (services.isEmpty()) {
             return;

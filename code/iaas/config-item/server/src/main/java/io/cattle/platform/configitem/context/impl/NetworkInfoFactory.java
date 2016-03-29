@@ -32,6 +32,9 @@ public class NetworkInfoFactory extends AbstractAgentBaseContextFactory {
 
     @Override
     protected void populateContext(Agent agent, Instance instance, ConfigItem item, ArchiveContext context) {
+        if (instance == null) {
+            return;
+        }
         context.getData().put("hostnameGenerator", new HostnameGenerator());
         context.getData().put("instance", instance);
         context.getData().put("agent", agent);

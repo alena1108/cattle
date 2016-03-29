@@ -28,6 +28,9 @@ public class MetadataInfoFactory extends AbstractAgentBaseContextFactory {
 
     @Override
     protected void populateContext(Agent agent, Instance agentInstance, ConfigItem item, ArchiveContext context) {
+        if (agentInstance == null) {
+            return;
+        }
         context.getData().put("metadata", getMetadata(agentInstance));
     }
 

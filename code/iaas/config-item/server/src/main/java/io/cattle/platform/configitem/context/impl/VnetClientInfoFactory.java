@@ -16,6 +16,9 @@ public class VnetClientInfoFactory extends AbstractAgentBaseContextFactory {
 
     @Override
     protected void populateContext(Agent agent, Instance instance, ConfigItem item, ArchiveContext context) {
+        if (instance == null) {
+            return;
+        }
         context.getData().put("vnetClients", networkInfo.vnetClients(instance));
     }
 
