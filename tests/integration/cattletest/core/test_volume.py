@@ -216,7 +216,9 @@ def purge_instance_and_check_volume_state(c, vols, state, client):
     for vol in vols:
         wait_for_condition(client, vol,
                            lambda x: (state == 'removed' and
-                                      x.removed is None) or x.state == state,
+                                      x.removed is None) or
+                           state == 'purged' or
+                           state == x.state,
                            lambda x: 'State: %s. Expected: %s' % (
                                x.state, state))
 
