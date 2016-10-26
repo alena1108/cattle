@@ -2,19 +2,16 @@ package io.cattle.platform.docker.transform;
 
 import static io.cattle.platform.core.constants.InstanceConstants.*;
 import static io.cattle.platform.docker.constants.DockerInstanceConstants.*;
-import static io.cattle.platform.docker.constants.DockerNetworkConstants.*;
+
 import io.cattle.platform.core.addon.BlkioDeviceOption;
 import io.cattle.platform.core.addon.LogConfig;
-import io.cattle.platform.core.constants.ContainerEventConstants;
 import io.cattle.platform.core.constants.InstanceConstants;
 import io.cattle.platform.core.constants.VolumeConstants;
 import io.cattle.platform.core.model.Instance;
+import io.cattle.platform.core.util.SystemLabels;
 import io.cattle.platform.json.JsonMapper;
 import io.cattle.platform.object.util.DataAccessor;
 import io.cattle.platform.util.type.CollectionUtils;
-import io.github.ibuildthecloud.gdapi.exception.ClientVisibleException;
-import io.github.ibuildthecloud.gdapi.util.ResponseCodes;
-import io.github.ibuildthecloud.gdapi.validation.ValidationErrorCodes;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +50,7 @@ public class DockerTransformerImpl implements DockerTransformer {
     private static final String DEST = "Destination";
     private static final String SRC = "Source";
     private static final String NAME = "Name";
-    
+
     private static final String READ_IOPS= "BlkioDeviceReadIOps";
     private static final String WRITE_IOPS= "BlkioDeviceWriteIOps";
     private static final String READ_BPS= "BlkioDeviceReadBps";
@@ -217,7 +214,6 @@ public class DockerTransformerImpl implements DockerTransformer {
         }
 
         setBlkioDeviceOptionss(instance, fromInspect);
-        setNetworkMode(instance, containerConfig, hostConfig);
         setField(instance, FIELD_SECURITY_OPT, fromInspect, HOST_CONFIG, "SecurityOpt");
         setField(instance, FIELD_PID_MODE, fromInspect, HOST_CONFIG, "PidMode");
         setField(instance, FIELD_READ_ONLY, fromInspect, HOST_CONFIG, "ReadonlyRootfs");
@@ -324,33 +320,6 @@ public class DockerTransformerImpl implements DockerTransformer {
         }
     }
 
-    void setNetworkMode(Instance instance, ContainerConfig containerConfig, HostConfig hostConfig) {
-        if(DataAccessor.fields(instance).withKey(FIELD_NETWORK_MODE).get() != null)
-            return;
-
-        String netMode = null;
-        if (containerConfig != null && containerConfig.isNetworkDisabled()) {
-            netMode = NETWORK_MODE_NONE;
-        } else if (hostConfig != null) {
-            String inspectNetMode = hostConfig.getNetworkMode();
-            if (NETWORK_MODE_BRIDGE.equals(inspectNetMode) ||
-                    NETWORK_MODE_HOST.equals(inspectNetMode) ||
-                    NETWORK_MODE_NONE.equals(inspectNetMode)) {
-                netMode = inspectNetMode;
-            } else if (NETWORK_MODE_DEFAULT.equals(inspectNetMode) || StringUtils.isBlank(inspectNetMode)) {
-                netMode = NETWORK_MODE_BRIDGE;
-            } else if (StringUtils.startsWith(inspectNetMode, NETWORK_MODE_CONTAINER)) {
-                throw new ClientVisibleException(ResponseCodes.UNPROCESSABLE_ENTITY, ValidationErrorCodes.INVALID_OPTION,
-                        "Transformer API does not support container network mode.", null);
-            } else {
-                throw new ClientVisibleException(ResponseCodes.UNPROCESSABLE_ENTITY, ValidationErrorCodes.INVALID_OPTION, 
-                        "Unrecognized network mode: " + inspectNetMode, null);
-            }
-        }
-
-        setField(instance, FIELD_NETWORK_MODE, netMode);
-    }
-
     void setField(Instance instance, String field, Map<String, Object> fromInspect, String... keys) {
         Object l = CollectionUtils.getNestedValue(fromInspect, keys);
         setField(instance, field, l);
@@ -415,9 +384,9 @@ public class DockerTransformerImpl implements DockerTransformer {
 
     void setName(Instance instance, InspectContainerResponse inspect, Map<String, Object> fromInspect) {
         String name = inspect.getName();
-        Object displayNameLabel = CollectionUtils.getNestedValue(fromInspect, "Config", "Labels", ContainerEventConstants.LABEL_DISPLAY_NAME);
+        Object displayNameLabel = CollectionUtils.getNestedValue(fromInspect, "Config", "Labels", SystemLabels.LABEL_DISPLAY_NAME);
         if (displayNameLabel == null) {
-            displayNameLabel = DataAccessor.fieldMap(instance, FIELD_LABELS).get(ContainerEventConstants.LABEL_DISPLAY_NAME);
+            displayNameLabel = DataAccessor.fieldMap(instance, FIELD_LABELS).get(SystemLabels.LABEL_DISPLAY_NAME);
         }
         if (displayNameLabel != null) {
             String displayName = displayNameLabel.toString();

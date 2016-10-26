@@ -1,0 +1,9 @@
+{
+    "resourceFields": {
+        "networkDriver":{
+            "type": "networkDriver",
+            "required": true,
+            "nullable": false
+        }
+    }
+}

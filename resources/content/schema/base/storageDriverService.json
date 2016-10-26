@@ -1,0 +1,9 @@
+{
+    "resourceFields": {
+        "storageDriver":{
+            "type": "storageDriver",
+            "required": true,
+            "nullable": false
+        }
+    }
+}

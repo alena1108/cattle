@@ -40,6 +40,7 @@ import io.cattle.platform.eventing.EventService;
 import io.cattle.platform.iaas.api.filter.apikey.ApiKeyFilter;
 import io.cattle.platform.json.JsonMapper;
 import io.cattle.platform.lock.LockManager;
+import io.cattle.platform.network.NetworkService;
 import io.cattle.platform.object.ObjectManager;
 import io.cattle.platform.object.process.ObjectProcessManager;
 import io.cattle.platform.object.process.StandardProcess;
@@ -117,6 +118,9 @@ public class ServiceDiscoveryServiceImpl implements ServiceDiscoveryService {
 
     @Inject
     ConfigItemStatusManager itemManager;
+
+    @Inject
+    NetworkService networkService;
 
     @Override
     public List<Integer> getServiceInstanceUsedSuffixes(Service service, String launchConfigName) {
@@ -501,11 +505,10 @@ public class ServiceDiscoveryServiceImpl implements ServiceDiscoveryService {
     @Override
     public void allocateIpToServiceIndex(ServiceIndex serviceIndex, String requestedIp) {
         if (StringUtils.isEmpty(serviceIndex.getAddress())) {
-            Network ntwk = ntwkDao.getNetworkForObject(serviceIndex, NetworkConstants.KIND_HOSTONLY);
-            if (ntwk != null) {
-                Subnet subnet = ntwkDao.addManagedNetworkSubnet(ntwk);
-                subnet = waitForSubnetCreation(subnet);
-                String ipAddress = allocateIpForService(serviceIndex, subnet, requestedIp);
+            // TODO: NETWORK_MODE_MANAGED shouldn't be hardcoded, the networkMode should come from the launchConfig
+            Network ntwk = networkService.resolveNetwork(serviceIndex.getAccountId(), NetworkConstants.NETWORK_MODE_MANAGED);
+            if (networkService.shouldAssignIpAddress(ntwk)) {
+                String ipAddress = networkService.assignIpAddress(ntwk, serviceIndex, requestedIp);
                 setServiceIndexIp(serviceIndex, ipAddress);
             }
         }
@@ -519,11 +522,9 @@ public class ServiceDiscoveryServiceImpl implements ServiceDiscoveryService {
     @Override
     public void releaseIpFromServiceIndex(ServiceIndex serviceIndex) {
         if (!StringUtils.isEmpty(serviceIndex.getAddress())) {
-            Network ntwk = ntwkDao.getNetworkForObject(serviceIndex, NetworkConstants.KIND_HOSTONLY);
-            if (ntwk != null) {
-                Subnet subnet = ntwkDao.addManagedNetworkSubnet(ntwk);
-                poolManager.releaseResource(subnet, serviceIndex);
-            }
+            // TODO: NETWORK_MODE_MANAGED shouldn't be hardcoded, the networkMode should come from the launchConfig
+            Network ntwk = networkService.resolveNetwork(serviceIndex.getAccountId(), NetworkConstants.NETWORK_MODE_MANAGED);
+            networkService.releaseIpAddress(ntwk, serviceIndex);
         }
     }
 

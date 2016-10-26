@@ -100,7 +100,7 @@ public class ServiceMetadataInfoFactory extends AbstractAgentBaseContextFactory 
         InstanceHostMap hostMap = objectManager.findAny(InstanceHostMap.class, INSTANCE_HOST_MAP.INSTANCE_ID,
                 instance.getId());
         if (hostMap == null) {
-            return;
+            return dataWithVersionTag;
         }
         long agentHostId = hostMap.getHostId();
         Map<Long, List<HealthcheckInstanceHostMap>> instanceIdToHealthcheckers = metaDataInfoDao
@@ -130,7 +130,7 @@ public class ServiceMetadataInfoFactory extends AbstractAgentBaseContextFactory 
         for (MetaDataInfoDao.Version version : MetaDataInfoDao.Version.values()) {
             Object data = versionToData.get(version.getValue());
             if (data == null) {
-                data = getFullMetaData(context, containersMD, stackNameToStack, serviceIdToServiceLaunchConfigs, version,
+                data = getFullMetaData(itemVersion, containersMD, stackNameToStack, serviceIdToServiceLaunchConfigs, version,
                         svcIdsToSvc, svcIdToSvcLinks, agentHostId, account.getId(), instance.getId());
                 versionToData.put(version.getValue(), data);
             }
@@ -184,7 +184,7 @@ public class ServiceMetadataInfoFactory extends AbstractAgentBaseContextFactory 
         return yamlStr;
     }
 
-    protected Map<String, Object> getFullMetaData(ArchiveContext context, List<ContainerMetaData> containersMD,
+    protected Map<String, Object> getFullMetaData(String itemVersion, List<ContainerMetaData> containersMD,
             Map<String, StackMetaData> stackNameToStack, Map<Long, Map<String, ServiceMetaData>> serviceIdToServiceLaunchConfigs,
             Version version, Map<Long, Service> svcIdsToSvc,
             Map<Long, List<ServiceConsumeMap>> svcIdToSvcLinks, long agentHostId, long accountId, long agentInstanceId) {
@@ -233,7 +233,7 @@ public class ServiceMetadataInfoFactory extends AbstractAgentBaseContextFactory 
         return HostMetaData.getHostMetaData(data, version);
     }
 
-    protected Map<String, Object> getFullMetaData(ArchiveContext context, List<ContainerMetaData> containersMD,
+    protected Map<String, Object> getFullMetaData(String itemVersion, List<ContainerMetaData> containersMD,
             Map<String, StackMetaData> stackNameToStack,
             Map<Long, Map<String, ServiceMetaData>> serviceIdToServiceLaunchConfigs, Map<String, SelfMetaData> selfMD,
             List<HostMetaData> hostsMD, HostMetaData selfHostMD, List<NetworkMetaData> networks) {
