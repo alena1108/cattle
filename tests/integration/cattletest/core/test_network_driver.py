@@ -50,6 +50,7 @@ def test_create_network_driver_create_delete_with_net(client, super_client):
                         'networkAddress': '1.1.1.1/8'
                     }
                 ],
+                'hostPorts': True,
                 'dns': ['1.1.1.1'],
                 'dnsSearch': ['domain.com',
                               'test.com'],
@@ -85,6 +86,7 @@ def test_create_network_driver_create_delete_with_net(client, super_client):
     network = client.wait_success(network)
 
     assert network.state == 'active'
+    assert network.hostPorts
 
     subnet = find_one(super_client.list_subnet, networkId=network.id)
     subnet = super_client.wait_success(subnet)
