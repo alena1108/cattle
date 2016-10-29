@@ -136,7 +136,6 @@ public class ExternalServiceAuthProvider {
 
             String encryptedToken = (String)jsonData.get(ServiceAuthConstants.JWT_KEY);
             Map<String, Object> decryptedToken = tokenService.getJsonPayload(encryptedToken, true);
-            @SuppressWarnings("unchecked")
             Token token = tokenUtil.createToken((Set<Identity>)decryptedToken.get("identities"), null);
 
             return token;

@@ -5,10 +5,8 @@ import static io.cattle.platform.core.model.tables.InstanceTable.*;
 import static io.cattle.platform.core.model.tables.ServiceTable.*;
 import static io.cattle.platform.core.model.tables.StackTable.*;
 import static io.cattle.platform.core.model.tables.VolumeTemplateTable.*;
+
 import io.cattle.platform.core.addon.LbConfig;
-import io.cattle.platform.core.addon.LoadBalancerServiceLink;
-import static io.cattle.platform.servicediscovery.api.util.ServiceDiscoveryDnsUtil.*;
-import io.cattle.platform.core.addon.BalancerServiceConfig;
 import io.cattle.platform.core.addon.ServiceLink;
 import io.cattle.platform.core.constants.InstanceConstants;
 import io.cattle.platform.core.constants.LoadBalancerConstants;
