@@ -186,7 +186,7 @@ def test_conflicting_ports_in_deployment_unit(new_context):
     svc = svc.activate()
     c = _wait_for_compose_instance_error(client, svc, env)
     assert 'Port 5555/tcp requested more than once.' in c.transitioningMessage
-    svc.remove()
+    env.remove()
 
 
 def test_simultaneous_port_allocation(new_context):
