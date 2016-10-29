@@ -11,7 +11,6 @@ public class SystemLabels {
     public static final String LABEL_CONTAINER_NAMESPACE = "io.rancher.container.namespace";
     public static final String LABEL_SERVICE_CONTAINER_START_ONCE = "io.rancher.container.start_once";
     public static final String LABEL_CNI_NETWORK = "io.rancher.cni.network";
-    public static final String LABEL_RANCHER_SYSTEM_CONTAINER = "io.rancher.container.system";
     public static final String LABEL_RANCHER_UUID = "io.rancher.container.uuid";
     public static final String LABEL_RANCHER_NETWORK = "io.rancher.container.network";
     public static final String LABEL_DISPLAY_NAME = "io.rancher.container.display_name";

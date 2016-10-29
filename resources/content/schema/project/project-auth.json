@@ -82,8 +82,8 @@
         "targetPortRule": "cr",
         "lbConfig" : "cr",
         "balancerServiceTargetConfig" : "cr",
-        "networkDriverService" : "cr",
-        "storageDriverService" : "cr",
+        "networkDriverService" : "crud",
+        "storageDriverService" : "crud",
         "end" : ""
     }
 }

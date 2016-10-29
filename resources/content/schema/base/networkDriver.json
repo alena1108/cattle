@@ -3,7 +3,7 @@
         "defaultNetwork": {
             "type" : "defaultNetwork"
         },
-        "cniConf": {
+        "cniConfig": {
             "type" : "map[json]"
         },
         "networkMetadata": {

@@ -185,9 +185,7 @@ public class ServiceDiscoveryServiceImpl implements ServiceDiscoveryService {
     }
 
     protected String allocateVip(Service service) {
-        if (service.getKind().equalsIgnoreCase(ServiceConstants.KIND_LOAD_BALANCER_SERVICE)
-                || service.getKind().equalsIgnoreCase(ServiceConstants.KIND_SERVICE)
-                || service.getKind().equalsIgnoreCase(ServiceConstants.KIND_DNS_SERVICE)) {
+        if (ServiceConstants.SERVICE_LIKE.contains(service.getKind())) {
             Subnet vipSubnet = getServiceVipSubnet(service);
             String requestedVip = service.getVip();
             return allocateIpForService(service, vipSubnet, requestedVip);

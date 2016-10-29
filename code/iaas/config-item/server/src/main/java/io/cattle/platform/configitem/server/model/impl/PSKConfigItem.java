@@ -12,12 +12,10 @@ import io.cattle.platform.core.model.Nic;
 import io.cattle.platform.object.ObjectManager;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.SecureRandom;
 import java.util.concurrent.Callable;
 
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
 
 import com.netflix.config.DynamicIntProperty;
 
@@ -36,11 +34,10 @@ public class PSKConfigItem extends AbstractConfigItem {
 
     public PSKConfigItem(ObjectManager objectManager, NicDao nicDao, DataDao dataDao, ConfigItemStatusManager versionManager) throws IOException {
         super(ITEM, versionManager);
-        try(InputStream is = PSKConfigItem.class.getResourceAsStream(PSKConfigItem.class.getSimpleName() + ".class")) {
-            sourceRevision = Hex.encodeHexString(DigestUtils.md5(is));
-        }
+        this.sourceRevision = "";
         this.nicDao = nicDao;
         this.dataDao = dataDao;
+        this.objectManager = objectManager;
     }
 
     protected String randomKey() {
@@ -69,8 +66,7 @@ public class PSKConfigItem extends AbstractConfigItem {
             }
         });
 
-        String data = String.format("%s.%s\n", key, getVersion(req));
-        req.getOutputStream().write(data.getBytes("UTF-8"));
+        req.getOutputStream().write(key.getBytes("UTF-8"));
     }
 
     @Override

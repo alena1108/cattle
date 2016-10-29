@@ -116,12 +116,6 @@ public class ContainerEventCreate extends AbstractDefaultProcessHandler {
                 String rancherUuid = getRancherUuidLabel(inspect, data);
                 Instance instance = instanceDao.getInstanceByUuidOrExternalId(event.getAccountId(), rancherUuid, event.getExternalId());
 
-                if (StringUtils.isNotEmpty(getLabel(LABEL_RANCHER_SYSTEM_CONTAINER, inspect, data))) {
-                    // System containers are not managed by container events
-                    return null;
-                }
-
-
                 try {
                     String status = event.getExternalStatus();
                     if (status.equals(EVENT_START) && instance == null) {

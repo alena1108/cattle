@@ -39,7 +39,7 @@ public class PSKProcessHandler extends AbstractObjectProcessLogic implements Pro
             return null;
         }
 
-        List<Long> agentIds = agentInstanceDao.getAgentProviderIgnoreHealth(SystemLabels.LABEL_AGENT_SERVICE_METADATA, instance.getAccountId());
+        List<Long> agentIds = agentInstanceDao.getAgentProviderIgnoreHealth(SystemLabels.LABEL_AGENT_SERVICE_IPSEC, instance.getAccountId());
         for (long agentId : agentIds) {
             ConfigUpdateRequest request = ConfigUpdateRequest.forResource(Agent.class, agentId);
             ConfigUpdateItem item = request.addItem("psk");

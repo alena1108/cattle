@@ -362,11 +362,12 @@
         "network.networkDriverId": "cr",
         "network.dns": "cr",
         "network.dnsSearch": "cr",
+        "network.hostPorts": "cr",
 
         "networkDriver" : "r",
         "networkDriver.defaultNetwork" : "cr",
         "networkDriver.serviceId" : "r",
-        "networkDriver.cniConf" : "cr",
+        "networkDriver.cniConfig" : "cr",
         "networkDriver.networkMetadata" : "cr",
 
         "storageDriver" : "r",
@@ -931,10 +932,10 @@
         "volumeTemplate.perContainer" : "cr",
 
         "networkDriverService" : "r",
-        "networkDriverService.networkDriver" : "cr",
+        "networkDriverService.networkDriver" : "cru",
 
         "storageDriverService" : "r",
-        "storageDriverService.storageDriver" : "cr",
+        "storageDriverService.storageDriver" : "cru",
 
         "defaultNetwork" : "r",
         "defaultNetwork.networkDriverId" : "",

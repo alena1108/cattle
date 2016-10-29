@@ -412,8 +412,6 @@
     <bean class="io.cattle.platform.servicediscovery.process.ServiceLinkActivateHandler" />
     <bean class="io.cattle.platform.servicediscovery.process.ServiceLinkPreInstanceStateHandler" />
 
-    <bean class="io.cattle.platform.servicediscovery.process.LoadBalancerServiceUpdateConfig" />
-
     <bean class="io.cattle.platform.servicediscovery.process.StackHealthStateUpdate" />
     <bean class="io.cattle.platform.servicediscovery.process.StackHealthStateUpdateTrigger" />
     <bean class="io.cattle.platform.servicediscovery.process.StackRemovePostListener" />

@@ -80,9 +80,9 @@ public class NetworkCreate extends AbstractDefaultProcessHandler {
             return null;
         }
 
-        Map<String, Object> metadata = DataAccessor.fieldMap(network, NetworkConstants.FIELD_SUBNETS);
-        Map<String, Object> driverMetadata = DataAccessor.fieldMap(network, NetworkDriverConstants.FIELD_NETWORK_METADATA);
-        Map<String, Object> cniConf = DataAccessor.fieldMap(network, NetworkDriverConstants.FIELD_CNI_CONFIG);
+        Map<String, Object> metadata = DataAccessor.fieldMap(network, NetworkConstants.FIELD_METADATA);
+        Map<String, Object> driverMetadata = DataAccessor.fieldMap(driver, NetworkDriverConstants.FIELD_NETWORK_METADATA);
+        Map<String, Object> cniConf = DataAccessor.fieldMap(driver, NetworkDriverConstants.FIELD_CNI_CONFIG);
         metadata.putAll(driverMetadata);
         metadata.put(NetworkDriverConstants.FIELD_CNI_CONFIG, cniConf);
 
