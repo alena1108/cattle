@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ServiceDiscoveryConfigItem {
     /**
-     * 
+     *
      * Unsupported docker compose variables - build - env_file - net - might add
      * support for that before the feature goes out - environment - don't
      * support the case when only key is specified, but no value - can't extract
@@ -140,10 +140,15 @@ public class ServiceDiscoveryConfigItem {
             ServiceConstants.FIELD_SERVICE_RETAIN_IP, "retain_ip", false, false, false);
     public static final ServiceDiscoveryConfigItem SCALE_POLICY = new ServiceDiscoveryConfigItem(
             ServiceConstants.FIELD_SCALE_POLICY, "scale_policy", false, false, false);
-
     public static final ServiceDiscoveryConfigItem LB_CONFIG = new ServiceDiscoveryConfigItem(
             ServiceConstants.FIELD_LB_CONFIG,
             NamedUtils.toUnderscoreSeparated(ServiceConstants.FIELD_LB_CONFIG), false, false, false);
+    public static final ServiceDiscoveryConfigItem NETWORK_DRIVER = new ServiceDiscoveryConfigItem(
+            ServiceConstants.FIELD_NETWORK_DRIVER,
+            NamedUtils.toUnderscoreSeparated(ServiceConstants.FIELD_NETWORK_DRIVER), false, false, false);
+    public static final ServiceDiscoveryConfigItem STORAGE_DRIVER = new ServiceDiscoveryConfigItem(
+            ServiceConstants.FIELD_STORAGE_DRIVER,
+            NamedUtils.toUnderscoreSeparated(ServiceConstants.FIELD_STORAGE_DRIVER), false, false, false);
 
     // VOLUME parameter
     private static List<ServiceDiscoveryConfigItem> supportedVolumeConfigItems = new ArrayList<>();
