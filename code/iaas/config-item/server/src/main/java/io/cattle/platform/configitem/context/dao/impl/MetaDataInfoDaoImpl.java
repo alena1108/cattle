@@ -218,7 +218,6 @@ public class MetaDataInfoDaoImpl extends AbstractJooqDao implements MetaDataInfo
                 .and(instance.STATE.notIn(CommonStatesConstants.REMOVING, CommonStatesConstants.REMOVED))
                 .and(exposeMap.REMOVED.isNull())
                 .and(instanceIpAddress.ROLE.eq(IpAddressConstants.ROLE_PRIMARY))
-                .and(ntwk.REMOVED.isNull())
                 .and((host.REMOVED.isNull()))
                 .and(exposeMap.STATE.isNull().or(
                         exposeMap.STATE.notIn(CommonStatesConstants.REMOVING, CommonStatesConstants.REMOVED)))
