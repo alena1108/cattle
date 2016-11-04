@@ -118,6 +118,7 @@ public class MetaDataInfoDaoImpl extends AbstractJooqDao implements MetaDataInfo
             String parentInstanceUUID = instanceIdToUUID.get(instance.getNetworkContainerId());
             if (parentInstanceUUID != null) {
                 data.setNetwork_from_container_uuid(parentInstanceUUID);
+                data.setNetwork_uuid(null);
             }
         }
     }
