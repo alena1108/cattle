@@ -617,7 +617,7 @@ def test_project_auth(admin_user_client, user_client, service_client,
         'orchestration': 'r',
         'version': 'r',
         'defaultNetworkId': 'r',
-        'accountLinks': 'cru',
+        'projectLinks': 'cru',
     })
 
     auth_check(user_client.schema, 'project', 'crud', {
@@ -662,7 +662,7 @@ def test_project_auth(admin_user_client, user_client, service_client,
         'orchestration': 'r',
         'version': 'r',
         'defaultNetworkId': 'r',
-        'accountLinks': 'cr',
+        'projectLinks': 'cr',
     })
 
 
@@ -1500,7 +1500,6 @@ def test_account_auth(admin_user_client, user_client, project_client):
         'kind': 'cru',
         'version': 'r',
         'uuid': 'cr',
-        'accountLinks': 'cru',
     })
 
     auth_check(user_client.schema, 'account', 'r', {
