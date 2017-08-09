@@ -11,7 +11,7 @@ package io.cattle.platform.core.model.tables;
 @java.lang.SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class AccountLinkTable extends org.jooq.impl.TableImpl<io.cattle.platform.core.model.tables.records.AccountLinkRecord> {
 
-	private static final long serialVersionUID = -1683253529;
+	private static final long serialVersionUID = -394530337;
 
 	/**
 	 * The singleton instance of <code>cattle.account_link</code>
@@ -85,6 +85,21 @@ public class AccountLinkTable extends org.jooq.impl.TableImpl<io.cattle.platform
 	 * The column <code>cattle.account_link.linked_account_id</code>.
 	 */
 	public final org.jooq.TableField<io.cattle.platform.core.model.tables.records.AccountLinkRecord, java.lang.Long> LINKED_ACCOUNT_ID = createField("linked_account_id", org.jooq.impl.SQLDataType.BIGINT, this, "");
+
+	/**
+	 * The column <code>cattle.account_link.linked_account</code>.
+	 */
+	public final org.jooq.TableField<io.cattle.platform.core.model.tables.records.AccountLinkRecord, java.lang.String> LINKED_ACCOUNT = createField("linked_account", org.jooq.impl.SQLDataType.VARCHAR.length(255), this, "");
+
+	/**
+	 * The column <code>cattle.account_link.linked_region_id</code>.
+	 */
+	public final org.jooq.TableField<io.cattle.platform.core.model.tables.records.AccountLinkRecord, java.lang.Long> LINKED_REGION_ID = createField("linked_region_id", org.jooq.impl.SQLDataType.BIGINT, this, "");
+
+	/**
+	 * The column <code>cattle.account_link.linked_region</code>.
+	 */
+	public final org.jooq.TableField<io.cattle.platform.core.model.tables.records.AccountLinkRecord, java.lang.String> LINKED_REGION = createField("linked_region", org.jooq.impl.SQLDataType.VARCHAR.length(255), this, "");
 
 	/**
 	 * Create a <code>cattle.account_link</code> table reference

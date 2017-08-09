@@ -47,6 +47,9 @@ public class AccountLinkRemove extends AbstractObjectProcessLogic implements Pro
     @Override
     public HandlerResult handle(ProcessState state, ProcessInstance process) {
         AccountLink accountLink = (AccountLink) state.getResource();
+        if (accountLink.getLinkedAccountId() == null) {
+            return null;
+        }
         updateServices(accountLink);
         Account account = objectManager.loadResource(Account.class, accountLink.getAccountId());
         if (account == null) {
