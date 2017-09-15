@@ -20,6 +20,7 @@ import io.cattle.platform.resource.pool.PooledResourceOptions;
 import io.cattle.platform.resource.pool.util.ResourcePoolConstants;
 import io.cattle.platform.util.exception.ResourceExhaustionException;
 import io.cattle.platform.util.type.CollectionUtils;
+
 import io.github.ibuildthecloud.gdapi.exception.ClientVisibleException;
 
 import java.util.Collection;
@@ -117,8 +118,9 @@ public class PortUnit implements Unit, InstanceBindable {
                 if (spec.getPublicPort() == null && spec.getPrivatePort() == port) {
                     Object owner = getOwner(getDeploymentUnit(context));
                     Account account = getAccount(owner);
-                    PooledResource resource = svc.lockManager.lock(new PortUnitLock(account, this), () -> {
-                        return svc.poolManager.allocateOneResource(account, owner,
+                    Account clusterAccount = svc.clusterDao.getOwnerAcccountForCluster(account.getClusterId());
+                    PooledResource resource = svc.lockManager.lock(new PortUnitLock(clusterAccount, this), () -> {
+                        return svc.poolManager.allocateOneResource(clusterAccount, owner,
                                 new PooledResourceOptions()
                                     .withSubOwner(getSubOwner())
                                     .withQualifier(ResourcePoolConstants.ENVIRONMENT_PORT));

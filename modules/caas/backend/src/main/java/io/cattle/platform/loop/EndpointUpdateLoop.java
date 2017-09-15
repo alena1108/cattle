@@ -1,5 +1,7 @@
 package io.cattle.platform.loop;
 
+import static java.util.stream.Collectors.*;
+
 import io.cattle.platform.core.addon.PortInstance;
 import io.cattle.platform.core.addon.metadata.HostInfo;
 import io.cattle.platform.core.addon.metadata.InstanceInfo;
@@ -14,7 +16,6 @@ import io.cattle.platform.engine.model.Loop;
 import io.cattle.platform.metadata.Metadata;
 import io.cattle.platform.metadata.MetadataManager;
 import io.cattle.platform.object.ObjectManager;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static java.util.stream.Collectors.*;
+import org.apache.commons.lang3.StringUtils;
 
 public class EndpointUpdateLoop implements Loop {
 

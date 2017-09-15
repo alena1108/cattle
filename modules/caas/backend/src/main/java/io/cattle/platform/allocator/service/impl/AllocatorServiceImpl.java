@@ -1,6 +1,5 @@
 package io.cattle.platform.allocator.service.impl;
 
-import com.netflix.config.DynamicStringProperty;
 import io.cattle.platform.agent.AgentLocator;
 import io.cattle.platform.agent.RemoteAgent;
 import io.cattle.platform.allocator.constraint.Constraint;
@@ -48,9 +47,6 @@ import io.cattle.platform.object.process.ObjectProcessManager;
 import io.cattle.platform.object.util.DataAccessor;
 import io.cattle.platform.object.util.ObjectUtils;
 import io.cattle.platform.util.type.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +59,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.netflix.config.DynamicStringProperty;
 
 public class AllocatorServiceImpl implements AllocatorService {
 
@@ -305,10 +307,11 @@ public class AllocatorServiceImpl implements AllocatorService {
 
         for (Instance i : instances) {
             List<PortSpec> ports = InstanceConstants.getPortSpecs(i);
-            for (PortSpec port : ports) {
-                locks.add(new AllocateConstraintLock(AllocateConstraintLock.Type.PORT,
-                        String.format("%s.%s", port.getProtocol(), port.getPublicPort())));
+            if (ports.isEmpty()) {
+                continue;
             }
+            locks.add(new AllocateConstraintLock(AllocateConstraintLock.Type.CLUSTER,
+                        i.getClusterId().toString()));
         }
 
         List<? extends Volume> volsToLock = volumeDao.identifyUnmappedVolumes(origInstance.getAccountId(), volumeIds);
@@ -563,7 +566,7 @@ public class AllocatorServiceImpl implements AllocatorService {
         if (newHost != null) {
             callExternalSchedulerToReserve(attempt, candidate);
         }
-        return allocatorDao.recordCandidate(attempt, candidate);
+        return allocatorDao.recordCandidate(attempt, candidate, metadataManager);
     }
 
     private String getHostUuid(Instance instance) {

@@ -6,6 +6,7 @@ import io.cattle.platform.core.model.Host;
 import io.cattle.platform.core.model.Instance;
 import io.cattle.platform.core.model.StoragePool;
 import io.cattle.platform.core.model.Volume;
+import io.cattle.platform.metadata.MetadataManager;
 
 import java.util.Collection;
 import java.util.List;
@@ -15,7 +16,7 @@ public interface AllocatorDao {
 
     List<? extends Host> getHosts(Collection<? extends StoragePool> storagePoolsIds);
 
-    boolean recordCandidate(AllocationAttempt attempt, AllocationCandidate candidate);
+    boolean recordCandidate(AllocationAttempt attempt, AllocationCandidate candidate, MetadataManager metadataManager);
 
     void releaseAllocation(Instance instance);
 

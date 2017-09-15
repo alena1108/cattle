@@ -8,7 +8,7 @@ public class AllocateConstraintLock extends AbstractBlockingLockDefintion {
         DEPLOYMENT_UNIT,
         AFFINITY,
         PORT,
-        VOLUME
+        VOLUME, CLUSTER
     }
     public AllocateConstraintLock(Type type, Object constraintId) {
         super("ALLOCATE.CONSTRAINT." + type + "." + constraintId);

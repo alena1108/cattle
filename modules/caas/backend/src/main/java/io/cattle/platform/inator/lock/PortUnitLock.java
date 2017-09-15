@@ -7,7 +7,7 @@ import io.cattle.platform.lock.definition.AbstractBlockingLockDefintion;
 public class PortUnitLock extends AbstractBlockingLockDefintion {
 
     public PortUnitLock(Account account, PortUnit unit) {
-        super("VOLUME.DEFINE." + account.getId() + "." + unit.getRef().toString().hashCode());
+        super("PORT.DEFINE." + account.getId() + "." + unit.getRef().toString().hashCode());
     }
 
 }

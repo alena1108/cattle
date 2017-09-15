@@ -92,7 +92,7 @@ public class ClusterProcessManager {
 
     public HandlerResult create(ProcessState state, ProcessInstance process) {
         Cluster cluster = (Cluster) state.getResource();
-        Account account = clusterDao.getOwnerAcccountForCluster(cluster);
+        Account account = clusterDao.getOwnerAcccountForCluster(cluster.getId());
         if (account == null) {
             account = clusterDao.createOwnerAccount(cluster);
         }
@@ -108,7 +108,7 @@ public class ClusterProcessManager {
 
     public HandlerResult activate(ProcessState state, ProcessInstance process) {
         Cluster cluster = (Cluster) state.getResource();
-        Account account = clusterDao.getOwnerAcccountForCluster(cluster);
+        Account account = clusterDao.getOwnerAcccountForCluster(cluster.getId());
 
         try {
             updateStack(cluster, account);

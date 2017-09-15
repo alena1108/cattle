@@ -1,13 +1,25 @@
 package io.cattle.platform.allocator.dao.impl;
 
+import static io.cattle.platform.core.model.tables.HostTable.*;
+import static io.cattle.platform.core.model.tables.InstanceTable.*;
+import static io.cattle.platform.core.model.tables.MountTable.*;
+import static io.cattle.platform.core.model.tables.StorageDriverTable.*;
+import static io.cattle.platform.core.model.tables.StoragePoolHostMapTable.*;
+import static io.cattle.platform.core.model.tables.VolumeTable.*;
+import static io.github.ibuildthecloud.gdapi.condition.Condition.*;
+import static java.util.stream.Collectors.*;
+
 import io.cattle.platform.allocator.dao.AllocatorDao;
 import io.cattle.platform.allocator.service.AllocationAttempt;
 import io.cattle.platform.allocator.service.AllocationCandidate;
 import io.cattle.platform.core.addon.PortInstance;
+import io.cattle.platform.core.addon.metadata.HostInfo;
+import io.cattle.platform.core.addon.metadata.ServiceInfo;
 import io.cattle.platform.core.constants.HealthcheckConstants;
 import io.cattle.platform.core.constants.HostConstants;
 import io.cattle.platform.core.constants.InstanceConstants;
 import io.cattle.platform.core.constants.VolumeConstants;
+import io.cattle.platform.core.dao.ClusterDao;
 import io.cattle.platform.core.model.Host;
 import io.cattle.platform.core.model.Instance;
 import io.cattle.platform.core.model.StorageDriver;
@@ -19,17 +31,14 @@ import io.cattle.platform.core.util.PortSpec;
 import io.cattle.platform.db.jooq.dao.impl.AbstractJooqDao;
 import io.cattle.platform.deferred.util.DeferredUtils;
 import io.cattle.platform.eventing.EventService;
+import io.cattle.platform.metadata.Metadata;
+import io.cattle.platform.metadata.MetadataManager;
 import io.cattle.platform.object.ObjectManager;
 import io.cattle.platform.object.util.DataAccessor;
 import io.cattle.platform.object.util.ObjectUtils;
+
 import io.github.ibuildthecloud.gdapi.util.ProxyUtils;
 import io.github.ibuildthecloud.gdapi.util.TransactionDelegate;
-import org.jooq.Configuration;
-import org.jooq.Record1;
-import org.jooq.RecordHandler;
-import org.jooq.Result;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,13 +51,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.cattle.platform.core.model.tables.HostTable.*;
-import static io.cattle.platform.core.model.tables.InstanceTable.*;
-import static io.cattle.platform.core.model.tables.MountTable.*;
-import static io.cattle.platform.core.model.tables.StorageDriverTable.*;
-import static io.cattle.platform.core.model.tables.StoragePoolHostMapTable.*;
-import static io.cattle.platform.core.model.tables.VolumeTable.*;
-import static io.github.ibuildthecloud.gdapi.condition.Condition.*;
+import org.jooq.Configuration;
+import org.jooq.Record1;
+import org.jooq.RecordHandler;
+import org.jooq.Result;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
 
@@ -60,13 +68,15 @@ public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
     ObjectManager objectManager;
     TransactionDelegate transaction;
     EventService eventService;
+    ClusterDao clusterDao;
 
     public AllocatorDaoImpl(Configuration configuration, ObjectManager objectManager, TransactionDelegate transaction,
-                            EventService eventService) {
+                            EventService eventService, ClusterDao clusterDao) {
         super(configuration);
         this.objectManager = objectManager;
         this.transaction = transaction;
         this.eventService = eventService;
+        this.clusterDao = clusterDao;
     }
 
     @Override
@@ -91,8 +101,7 @@ public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
     }
 
     @Override
-
-    public boolean recordCandidate(AllocationAttempt attempt, AllocationCandidate candidate) {
+    public boolean recordCandidate(AllocationAttempt attempt, AllocationCandidate candidate, MetadataManager metadataManager) {
         return DeferredUtils.nest(() -> {
             transaction.doInTransaction(() -> {
                 Long newHost = candidate.getHost();
@@ -100,7 +109,7 @@ public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
                     for (Instance instance : attempt.getInstances()) {
                         log.info("Associating instance [{}] to host [{}]", instance.getId(), newHost);
                         instance.setHostId(newHost);
-                        updateInstancePorts(instance, attempt.getAllocatedIPs());
+                        updateInstancePorts(instance, attempt.getAllocatedIPs(), newHost, metadataManager);
                         objectManager.persist(instance);
                         ObjectUtils.publishChanged(eventService, instance.getAccountId(), instance.getClusterId(), newHost, HostConstants.TYPE);
                     }
@@ -225,11 +234,16 @@ public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
      *
      * Then update instance ports with the bind address if needed.
      */
-    private void updateInstancePorts(Instance instance, List<Map<String, Object>> dataList) {
+    private void updateInstancePorts(Instance instance, List<Map<String, Object>> dataList, Long hostId, MetadataManager metadataManager) {
         List<PortAssignment> portAssignments = getPortAssignments(instance, dataList);
         List<PortSpec> portSpecs = InstanceConstants.getPortSpecs(instance);
         List<PortInstance> portBindings = new ArrayList<>();
-
+        Long clusterAccountId = clusterDao.getOwnerAcccountIdForCluster(instance.getClusterId());
+        Metadata clusterMetadata = metadataManager.getMetadataForAccount(clusterAccountId);
+        Metadata userMetadata = metadataManager.getMetadataForAccount(instance.getAccountId());
+        HostInfo hostInfo = clusterMetadata.getHost(objectManager.loadResource(Host.class, hostId).getUuid());
+        Map<Long, ServiceInfo> services = userMetadata.getServices().stream().collect(toMap(ServiceInfo::getId, (x) -> x));
+        ServiceInfo serviceInfo = services.get(instance.getServiceId());
         for (PortSpec spec : portSpecs) {
             PortInstance binding = new PortInstance(spec);
             for (PortAssignment assignment : portAssignments) {
@@ -237,9 +251,20 @@ public class AllocatorDaoImpl extends AbstractJooqDao implements AllocatorDao {
                     binding.setBindIpAddress(assignment.getAllocatedIP());
                 }
             }
+            binding.setAgentIpAddress(hostInfo.getAgentIp());
+            binding.setInstanceId(instance.getId());
+            binding.setHostId(hostId);
+            binding.setServiceId(instance.getServiceId());
+            binding.setFqdn(serviceInfo == null ? null : serviceInfo.getFqdn());
             portBindings.add(binding);
         }
-
+        if (!portBindings.isEmpty()) {
+            Set<PortInstance> ports = hostInfo.getPorts();
+            ports.addAll(portBindings);
+            clusterMetadata.modify(Host.class, hostInfo.getId(), (host) -> {
+                return objectManager.setFields(host, HostConstants.FIELD_PUBLIC_ENDPOINTS, ports);
+            });
+        }
 
         DataAccessor.setField(instance, InstanceConstants.FIELD_PORT_BINDINGS, portBindings);
     }
