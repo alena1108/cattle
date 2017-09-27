@@ -60,23 +60,27 @@ public class DeployinatorImpl implements Deployinator {
         InatorContext context = new InatorContext(units, inator);
 
         Result result = null;
-        switch (inator.getDesiredState()) {
-        case ACTIVE:
-            result = activate(context);
-            break;
-        case INACTIVE:
-            result = deactivate(context);
-            break;
-        case REMOVED:
-            result = remove(context);
-            break;
-        case PAUSE:
-            result = pause(context);
-            break;
-        case ERROR:
-            return Result.good();
-        default:
-            break;
+        if (inator.isNoOp()) {
+            result = Result.good();
+        } else {
+            switch (inator.getDesiredState()) {
+            case ACTIVE:
+                result = activate(context);
+                break;
+            case INACTIVE:
+                result = deactivate(context);
+                break;
+            case REMOVED:
+                result = remove(context);
+                break;
+            case PAUSE:
+                result = pause(context);
+                break;
+            case ERROR:
+                return Result.good();
+            default:
+                break;
+            }
         }
 
         return inator.postProcess(context, result);

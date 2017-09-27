@@ -23,4 +23,6 @@ public interface Inator {
     DesiredState getDesiredState();
 
     Result postProcess(InatorContext context, Result result);
+
+    boolean isNoOp();
 }

@@ -8,6 +8,7 @@ import io.cattle.platform.inator.Unit;
 import io.cattle.platform.inator.UnitRef;
 import io.cattle.platform.inator.factory.InatorServices;
 import io.cattle.platform.inator.planner.UnitPlanner;
+import io.cattle.platform.inator.planner.impl.NoOpServicePlanner;
 import io.cattle.platform.inator.unit.DeploymentUnitUnit;
 import io.cattle.platform.inator.wrapper.DeploymentUnitWrapper;
 import io.cattle.platform.inator.wrapper.ServiceWrapper;
@@ -24,12 +25,16 @@ public class ServiceInator implements Inator {
     UnitPlanner planner;
     UpgradeInator upgrade;
     RestartInator restart;
+    boolean noOp;
 
     public ServiceInator(Service service, UnitPlanner planner, InatorServices svc) {
         super();
         this.service = new ServiceWrapper(service, svc);
         this.svc = svc;
         this.planner = planner;
+        if (planner instanceof NoOpServicePlanner) {
+            noOp = true;
+        }
         this.upgrade = new UpgradeInator(this.service, svc);
         this.restart = new RestartInator(this.service, svc);
     }
@@ -60,6 +65,11 @@ public class ServiceInator implements Inator {
     public Result postProcess(InatorContext context, Result result) {
         result = upgrade.checkUpgrade(context, result);
         return restart.checkRestart(context, result);
+    }
+
+    @Override
+    public boolean isNoOp() {
+        return noOp;
     }
 
 }

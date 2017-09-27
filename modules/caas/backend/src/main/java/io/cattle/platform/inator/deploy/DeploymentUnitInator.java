@@ -169,4 +169,9 @@ public class DeploymentUnitInator implements Inator {
         return unit;
     }
 
+    @Override
+    public boolean isNoOp() {
+        return false;
+    }
+
 }
