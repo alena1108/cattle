@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +57,7 @@ import org.slf4j.LoggerFactory;
 public class RegionServiceImpl implements RegionService {
     private static final Logger log = LoggerFactory.getLogger(RegionServiceImpl.class);
     public static final String EXTERNAL_AGENT_URI_PREFIX = "event:///external=";
+    private static final List<String> INVALID_STATES = Arrays.asList(CommonStatesConstants.REMOVING, CommonStatesConstants.REMOVED);
 
     @Inject
     ObjectManager objectManager;
@@ -74,9 +74,13 @@ public class RegionServiceImpl implements RegionService {
         if (regions.size() == 0) {
             return;
         }
+        Account localAccount = objectManager.loadResource(Account.class, accountId);
+        if (INVALID_STATES.contains(localAccount.getState())) {
+            return;
+        }
+
         Map<String, Region> regionsMap = new HashMap<>();
         Region localRegion = null;
-        Account localAccount = objectManager.loadResource(Account.class, accountId);
         for (Region region : regions) {
             regionsMap.put(region.getName(), region);
             if (region.getLocal()) {
@@ -84,75 +88,16 @@ public class RegionServiceImpl implements RegionService {
             }
         }
 
-        List<? extends AccountLink> existingLinks = objectManager.find(AccountLink.class, ACCOUNT_LINK.ACCOUNT_ID, accountId,
-                ACCOUNT_LINK.REMOVED, null, ACCOUNT_LINK.LINKED_ACCOUNT, new Condition(ConditionType.NOTNULL), ACCOUNT_LINK.LINKED_REGION,
-                new Condition(ConditionType.NOTNULL));
-        Set<String> existingLinksKeys = new HashSet<>();
-        for (AccountLink existingLink : existingLinks) {
-            existingLinksKeys.add(getUUID(existingLink.getLinkedRegion(), existingLink.getLinkedAccount()));
-        }
-
-        List<? extends ServiceConsumeMap> links = objectManager.find(ServiceConsumeMap.class, SERVICE_CONSUME_MAP.ACCOUNT_ID, accountId,
-                SERVICE_CONSUME_MAP.REMOVED, null, SERVICE_CONSUME_MAP.CONSUMED_SERVICE, new Condition(ConditionType.NOTNULL));
-        List<String> invalidStates = Arrays.asList(CommonStatesConstants.REMOVING, CommonStatesConstants.REMOVED);
-        Set<String> toAdd = new HashSet<>();
-        for (ServiceConsumeMap link : links) {
-            if (invalidStates.contains(link.getState())) {
-                continue;
-            }
-            if (link.getConsumedService() == null) {
-                continue;
-            }
-            String[] splitted = link.getConsumedService().split("/");
-            if (splitted.length < 4) {
-                continue;
-            }
-            if (regionsMap.containsKey(splitted[0]) && !invalidStates.contains(localAccount.getState())) {
-                toAdd.add(getUUID(splitted[0], splitted[1]));
-            }
-        }
-
-        List<? extends Service> lbs = objectManager.find(Service.class, SERVICE.ACCOUNT_ID, accountId,
-                SERVICE.REMOVED, null, SERVICE.KIND, ServiceConstants.KIND_LOAD_BALANCER_SERVICE);
-        for (Service lb : lbs) {
-            if (invalidStates.contains(lb.getState())) {
-                continue;
-            }
-            LbConfig lbConfig = DataAccessor.field(lb, ServiceConstants.FIELD_LB_CONFIG, jsonMapper,
-                    LbConfig.class);
-            if (lbConfig != null && lbConfig.getPortRules() != null) {
-                for (PortRule rule : lbConfig.getPortRules()) {
-                    String rName = rule.getRegion();
-                    String eName = rule.getEnvironment();
-                    if (StringUtils.isEmpty(eName)) {
-                        continue;
-                    }
-                    if (StringUtils.isAllLowerCase(rName)) {
-                        rName = localRegion.getName();
-                    }
-                    if (regionsMap.containsKey(rName) && !invalidStates.contains(localAccount.getState())) {
-                        toAdd.add(getUUID(rName, eName));
-                    }
-                }
-            }
-        }
-
         List<AccountLink> toRemove = new ArrayList<>();
         List<AccountLink> toUpdate = new ArrayList<>();
         Set<String> toCreate = new HashSet<>();
-        for (AccountLink link : existingLinks) {
-            if (!toAdd.contains(getUUID(link.getLinkedRegion(), link.getLinkedAccount()))) {
-                toRemove.add(link);
-            } else {
-                toUpdate.add(link);
-            }
-        }
-        for (String item : toAdd) {
-            if (!existingLinksKeys.contains(item)) {
-                toCreate.add(item);
-            }
-        }
 
+        fetchAccountLinks(accountId, regionsMap, localRegion, toRemove, toUpdate, toCreate);
+        reconcileAccountLinks(accountId, regionsMap, toRemove, toUpdate, toCreate);
+    }
+
+    private void reconcileAccountLinks(long accountId, Map<String, Region> regionsMap, List<AccountLink> toRemove, List<AccountLink> toUpdate,
+            Set<String> toCreate) {
         for (AccountLink item : toRemove) {
             if (!item.getState().equalsIgnoreCase(CommonStatesConstants.REMOVING)) {
                 objectProcessManager.scheduleStandardProcess(StandardProcess.REMOVE, item, null);
@@ -174,6 +119,79 @@ public class RegionServiceImpl implements RegionService {
         for (AccountLink item : toUpdate) {
             if (item.getState().equalsIgnoreCase(CommonStatesConstants.REQUESTED)) {
                 objectProcessManager.scheduleStandardProcessAsync(StandardProcess.CREATE, item, null);
+            }
+        }
+    }
+
+    private void fetchAccountLinks(long accountId, Map<String, Region> regionsMap, Region localRegion, List<AccountLink> toRemove, List<AccountLink> toUpdate,
+            Set<String> toCreate) {
+        List<? extends ServiceConsumeMap> links = objectManager.find(ServiceConsumeMap.class, SERVICE_CONSUME_MAP.ACCOUNT_ID, accountId,
+                SERVICE_CONSUME_MAP.REMOVED, null, SERVICE_CONSUME_MAP.CONSUMED_SERVICE, new Condition(ConditionType.NOTNULL));
+        
+        Set<String> toAdd = new HashSet<>();
+        for (ServiceConsumeMap link : links) {
+            if (INVALID_STATES.contains(link.getState())) {
+                continue;
+            }
+            if (link.getConsumedService() == null) {
+                continue;
+            }
+            String[] splitted = link.getConsumedService().split("/");
+            if (splitted.length < 4) {
+                continue;
+            }
+            if (splitted.length == 4) {
+                if (regionsMap.containsKey(splitted[0])) {
+                    toAdd.add(getUUID(splitted[0], splitted[1]));
+                }
+            } else if (splitted.length == 3) {
+                toAdd.add(getUUID(localRegion.getName(), splitted[0]));
+            }
+        }
+
+        List<? extends Service> lbs = objectManager.find(Service.class, SERVICE.ACCOUNT_ID, accountId,
+                SERVICE.REMOVED, null, SERVICE.KIND, ServiceConstants.KIND_LOAD_BALANCER_SERVICE);
+        for (Service lb : lbs) {
+            if (INVALID_STATES.contains(lb.getState())) {
+                continue;
+            }
+            LbConfig lbConfig = DataAccessor.field(lb, ServiceConstants.FIELD_LB_CONFIG, jsonMapper,
+                    LbConfig.class);
+            if (lbConfig != null && lbConfig.getPortRules() != null) {
+                for (PortRule rule : lbConfig.getPortRules()) {
+                    String rName = rule.getRegion();
+                    String eName = rule.getEnvironment();
+                    if (StringUtils.isEmpty(eName)) {
+                        continue;
+                    }
+                    if (StringUtils.isAllLowerCase(rName)) {
+                        rName = localRegion.getName();
+                    }
+                    if (regionsMap.containsKey(rName)) {
+                        toAdd.add(getUUID(rName, eName));
+                    }
+                }
+            }
+        }
+
+        List<? extends AccountLink> existingLinks = objectManager.find(AccountLink.class, ACCOUNT_LINK.ACCOUNT_ID, accountId,
+                ACCOUNT_LINK.REMOVED, null, ACCOUNT_LINK.LINKED_ACCOUNT, new Condition(ConditionType.NOTNULL), ACCOUNT_LINK.LINKED_REGION,
+                new Condition(ConditionType.NOTNULL));
+        Set<String> existingLinksKeys = new HashSet<>();
+        for (AccountLink existingLink : existingLinks) {
+            existingLinksKeys.add(getUUID(existingLink.getLinkedRegion(), existingLink.getLinkedAccount()));
+        }
+
+        for (AccountLink link : existingLinks) {
+            if (!toAdd.contains(getUUID(link.getLinkedRegion(), link.getLinkedAccount()))) {
+                toRemove.add(link);
+            } else {
+                toUpdate.add(link);
+            }
+        }
+        for (String item : toAdd) {
+            if (!existingLinksKeys.contains(item)) {
+                toCreate.add(item);
             }
         }
     }
@@ -263,48 +281,19 @@ public class RegionServiceImpl implements RegionService {
             Map<String, ExternalCredential> toAdd,
             Map<String, ExternalCredential> toRemove,
             Map<String, ExternalCredential> toRetain) {
-        List<ExternalCredential> toReturn = new ArrayList<>();
 
-        // 1. Check if agent exist for credential to retain; if not, add to remove list
-        Iterator<String> it = toRetain.keySet().iterator();
-        while (it.hasNext()) {
-            String key = it.next();
-            ExternalCredential cred = toRetain.get(key);
-            Region targetRegion = regions.get(cred.getRegionName());
-            if (targetRegion == null) {
-                it.remove();
-                log.error(String.format("Failed to find target region by name [%s]", cred.getRegionName()));
-                continue;
-            }
-            ExternalAgent externalAgent = null;
-            try {
-                externalAgent = getExternalAgent(targetRegion, cred.getAgentUuid());
-            } catch (IOException e) {
-                log.error(String.format("Failed to find external agent by uuid [%s]", cred.getAgentUuid()));
-                continue;
-            }
-            if (externalAgent == null) {
-                // regenerate the agent
-                String uuid = getUUID(cred.getRegionName(), cred.getEnvironmentName());
-                toAdd.put(uuid, new ExternalCredential(cred.getEnvironmentName(), cred.getRegionName(), cred.getPublicValue(), cred.getSecretValue()));
-                it.remove();
-            }
-        }
-        toReturn.addAll(toRetain.values());
-
-        // 2. Add missing agents
+        // 1. Add missing agents
         for (String key : toAdd.keySet()) {
             ExternalCredential value = toAdd.get(key);
             ExternalAgent externalAgent = createExternalAgent(agent, account, localRegion, regions.get(value.getRegionName()), toAdd.get(key));
             if (externalAgent != null) {
                 value.setAgentUuid(externalAgent.getUuid());
                 // only add credential of the agent which got created successfully
-                toReturn.add(value);
                 toRetain.put(key, value);
             }
         }
 
-        // 3. Remove extra agents.
+        // 2. Remove extra agents.
         for (String key : toRemove.keySet()) {
             ExternalCredential value = toRemove.get(key);
             if (!deactivateAndRemoveExtenralAgent(agent, localRegion, regions, value)) {
@@ -313,6 +302,8 @@ public class RegionServiceImpl implements RegionService {
             }
         }
         objectManager.setFields(agent, AccountConstants.FIELD_EXTERNAL_CREDENTIALS, toRetain.values());
+        List<ExternalCredential> toReturn = new ArrayList<>();
+        toReturn.addAll(toRetain.values());
         return toReturn;
     }
 
