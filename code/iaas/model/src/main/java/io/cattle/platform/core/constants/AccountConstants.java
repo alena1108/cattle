@@ -63,6 +63,9 @@ public class AccountConstants {
     public static final String ORC_MESOS = "mesos";
     public static final String ORC_WINDOWS = "windows";
 
+    public static final String PROCESS_ACCOUNT_LINK_CREATE = "accountlink.create";
+    public static final String PROCESS_ACCOUNT_LINK_REMOVE = "accountlink.remove";
+
     public static ServicesPortRange getDefaultServicesPortRange() {
         PortRangeSpec spec = new PortRangeSpec(ENV_PORT_RANGE.get());
         return new ServicesPortRange(spec.getStartPort(), spec.getEndPort());

@@ -103,7 +103,7 @@ public class AccountLinkRemove extends AbstractObjectProcessLogic implements Pro
 
     @Override
     public String[] getProcessNames() {
-        return new String[] { "accountlink.remove" };
+        return new String[] { AccountConstants.PROCESS_ACCOUNT_LINK_REMOVE };
     }
 
 }

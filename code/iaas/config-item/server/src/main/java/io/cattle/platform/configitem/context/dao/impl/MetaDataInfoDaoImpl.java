@@ -31,6 +31,7 @@ import io.cattle.platform.configitem.context.data.metadata.common.ServiceMetaDat
 import io.cattle.platform.configitem.context.data.metadata.common.StackMetaData;
 import io.cattle.platform.core.addon.ExternalCredential;
 import io.cattle.platform.core.addon.InstanceHealthCheck;
+import io.cattle.platform.core.constants.AccountConstants;
 import io.cattle.platform.core.constants.CommonStatesConstants;
 import io.cattle.platform.core.constants.InstanceConstants;
 import io.cattle.platform.core.constants.IpAddressConstants;
@@ -651,7 +652,8 @@ public class MetaDataInfoDaoImpl extends AbstractJooqDao implements MetaDataInfo
             }
             regionsMap.put(region.getName(), region);
         }
-        for (ExternalCredential cred : regionSvc.getExternalCredentials(helperInfo.getAccount(), agent)) {
+        List<ExternalCredential> creds = DataAccessor.fieldObjectList(agent, AccountConstants.FIELD_EXTERNAL_CREDENTIALS, ExternalCredential.class, jsonMapper);
+        for (ExternalCredential cred : creds) {
             Region region = regionsMap.get(cred.getRegionName());
             CredentialMetaData meta = new CredentialMetaData(region.getUrl(), cred.getPublicValue(), cred.getSecretValue());
             writeToJson(os, meta);

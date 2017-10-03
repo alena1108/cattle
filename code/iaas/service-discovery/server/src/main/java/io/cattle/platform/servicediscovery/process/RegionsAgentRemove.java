@@ -61,16 +61,9 @@ public class RegionsAgentRemove extends AbstractObjectProcessLogic implements Pr
                 localRegion = region;
             }
         }
-        boolean result = true;
         for (ExternalCredential cred : creds) {
-            if (!regionService.deactivateAndRemoveExtenralAgent(agent, localRegion, regions, cred)) {
-                result = false;
-            }
+            regionService.deactivateAndRemoveExtenralAgent(agent, localRegion, regions, cred);
         }
-        if (!result) {
-            throw new RuntimeException("Failed to cleanup external credentials for agent");
-        }
-        
 
         return null;
     }

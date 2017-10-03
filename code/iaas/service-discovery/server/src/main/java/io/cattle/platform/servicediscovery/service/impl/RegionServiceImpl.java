@@ -5,6 +5,7 @@ import static io.cattle.platform.core.model.tables.RegionTable.*;
 import static io.cattle.platform.core.model.tables.ServiceConsumeMapTable.*;
 import static io.cattle.platform.core.model.tables.ServiceTable.*;
 
+import io.cattle.platform.agent.instance.dao.AgentInstanceDao;
 import io.cattle.platform.core.addon.ExternalCredential;
 import io.cattle.platform.core.addon.LbConfig;
 import io.cattle.platform.core.addon.PortRule;
@@ -33,6 +34,7 @@ import io.github.ibuildthecloud.gdapi.condition.Condition;
 import io.github.ibuildthecloud.gdapi.condition.ConditionType;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -61,12 +63,12 @@ public class RegionServiceImpl implements RegionService {
 
     @Inject
     ObjectManager objectManager;
-
     @Inject
     JsonMapper jsonMapper;
-
     @Inject
     ObjectProcessManager objectProcessManager;
+    @Inject
+    AgentInstanceDao agentInstanceDao;
 
     @Override
     public void reconcileExternalLinks(long accountId) {
@@ -201,56 +203,83 @@ public class RegionServiceImpl implements RegionService {
     }
 
     @Override
-    public List<ExternalCredential> getExternalCredentials(Account account, Agent agent) {
+    public boolean reconcileAgentsExternalCredentials(long accountId) {
         Map<Long, Region> regionsIds = new HashMap<>();
-        Map<String, Region> regionsNames = new HashMap<>();
+        Map<String, Region> regionNameToRegion = new HashMap<>();
         Region localRegion = null;
 
         for (Region region : objectManager.find(Region.class, REGION.REMOVED, new Condition(ConditionType.NULL))) {
             regionsIds.put(region.getId(), region);
-            regionsNames.put(region.getName(), region);
+            regionNameToRegion.put(region.getName(), region);
             if (region.getLocal()) {
                 localRegion = region;
             }
         }
         // no regions = no external credential management
         if (regionsIds.isEmpty()) {
-            return new ArrayList<ExternalCredential>();
+            return true;
         }
-
-        // 1. Get environments
+        boolean success = true;
+        Account account = objectManager.loadResource(Account.class, accountId);
+        // 1. Get linked environments
         Set<String> externalLinks = new HashSet<>();
         // 1.1 Get environments linked FROM local
-        getEnvironmentsLinkedFromLocal(account.getId(), externalLinks, regionsIds);
+        Map<String, ExternalProject> projects = new HashMap<>();
+        getEnvironmentsLinkedFromLocal(account.getId(), externalLinks, regionsIds, projects);
         // 1.2 Get environments linked TO local
-        for (Region region : regionsNames.values()) {
-            try {
-                getEnvironmentsLinkedToLocal(region, localRegion.getName(), account.getName(),
-                        regionsNames, externalLinks);
-            } catch (IOException e) {
-                log.error("Failed to fetch environment linked to local from region " + region.getName(), e);
-                continue;
+        if (account.getName() != null) {
+            for (Region region : regionNameToRegion.values()) {
+                try {
+                    getEnvironmentsLinkedToLocal(region, localRegion.getName(), account.getName(),
+                            regionNameToRegion, externalLinks);
+                } catch (Exception e) {
+                    success = false;
+                    log.error(String.format("Failed to fetch environment linked to local from region [%s]", region.getName()), e);
+                }
             }
         }
 
-        // 2. Set credentials
+        // 2. Reconcile agents' credentials
+        for (Long agentId : agentInstanceDao.getAgentProviderIgnoreHealth(SystemLabels.LABEL_AGENT_SERVICE_METADATA,
+                accountId)) {
+            Agent agent = objectManager.loadResource(Agent.class, agentId);
+            try {
+                reconcileExternalCredentials(account, agent, localRegion, externalLinks, projects, regionNameToRegion);
+            } catch (Exception ex) {
+                success = false;
+                log.error(String.format("Fail to reconcile credentials for agent [%d]", agentId), ex);
+            }
+        }
+        return success;
+    }
+
+    protected void reconcileExternalCredentials(Account account, Agent agent, Region localRegion, Set<String> externalLinks,
+            Map<String, ExternalProject> externalProjects, Map<String, Region> regionNameToRegion) {
+        // 1. Set credentials
         Map<String, ExternalCredential> toAdd = new HashMap<>();
         Map<String, ExternalCredential> toRemove = new HashMap<>();
         Map<String, ExternalCredential> toRetain = new HashMap<>();
         setCredentials(agent, externalLinks, toAdd, toRemove, toRetain);
 
-        // 3. Reconcile agents
-        return reconcileExternalAgents(account, agent, localRegion, regionsNames, toAdd, toRemove, toRetain);
+        // 2. Reconcile agents
+        reconcileExternalAgents(account, agent, localRegion, regionNameToRegion, toAdd, toRemove, toRetain, externalProjects);
     }
 
-    private ExternalAgent createExternalAgent(Agent agent, Account account, Region localRegion, Region targetRegion, ExternalCredential cred) {
+    private ExternalAgent createExternalAgent(Agent agent, Account account, Region localRegion, Region targetRegion,
+            ExternalCredential cred, Map<String, ExternalProject> externalProjects) {
         // Create external agent with local credentials
         try {
-            ExternalProject targetResourceAccount = getTargetProjectByName(targetRegion, cred.getEnvironmentName());
-            if (targetResourceAccount == null) {
-                log.error(String.format("Failed to find target environment by name [%s] in region [%s]",
-                        cred.getEnvironmentName(), localRegion.getName()));
-                return null;
+            String UUID = getUUID(targetRegion.getName(), cred.getEnvironmentName());
+            ExternalProject targetResourceAccount = null;
+            if (externalProjects.containsKey(UUID)) {
+                targetResourceAccount = externalProjects.get(UUID);
+            } else {
+                targetResourceAccount = getTargetProjectByName(targetRegion, cred.getEnvironmentName());
+                if (targetResourceAccount == null) {
+                    throw new RuntimeException(String.format("Failed to find target environment by name [%s] in region [%s]",
+                            cred.getEnvironmentName(), localRegion.getName()));
+                }
+                externalProjects.put(UUID, targetResourceAccount);
             }
 
             String targetAgentUri = getTargetAgentUri(localRegion.getName(), account.getName(), agent.getUuid(), targetResourceAccount.getUuid());
@@ -269,23 +298,25 @@ public class RegionServiceImpl implements RegionService {
             data.put(InstanceConstants.FIELD_LABELS, labels);
             data.put("activateOnCreate", true);
             return createExternalAgent(targetRegion, cred.getEnvironmentName(), data);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Failed to create external agent", e);
+            return null;
         }
-        return null;
     }
 
-    private List<ExternalCredential> reconcileExternalAgents(Account account, Agent agent,
+    private void reconcileExternalAgents(Account account, Agent agent,
             Region localRegion,
             Map<String, Region> regions,
             Map<String, ExternalCredential> toAdd,
             Map<String, ExternalCredential> toRemove,
-            Map<String, ExternalCredential> toRetain) {
+            Map<String, ExternalCredential> toRetain,
+            Map<String, ExternalProject> externalProjects) {
 
         // 1. Add missing agents
         for (String key : toAdd.keySet()) {
             ExternalCredential value = toAdd.get(key);
-            ExternalAgent externalAgent = createExternalAgent(agent, account, localRegion, regions.get(value.getRegionName()), toAdd.get(key));
+            ExternalAgent externalAgent = createExternalAgent(agent, account, localRegion, regions.get(value.getRegionName()), toAdd.get(key),
+                    externalProjects);
             if (externalAgent != null) {
                 value.setAgentUuid(externalAgent.getUuid());
                 // only add credential of the agent which got created successfully
@@ -297,21 +328,17 @@ public class RegionServiceImpl implements RegionService {
         for (String key : toRemove.keySet()) {
             ExternalCredential value = toRemove.get(key);
             if (!deactivateAndRemoveExtenralAgent(agent, localRegion, regions, value)) {
-                // add credential back so it can be cleaned up next time
                 toRetain.put(key, value);
             }
         }
         objectManager.setFields(agent, AccountConstants.FIELD_EXTERNAL_CREDENTIALS, toRetain.values());
-        List<ExternalCredential> toReturn = new ArrayList<>();
-        toReturn.addAll(toRetain.values());
-        return toReturn;
     }
 
     @Override
     public boolean deactivateAndRemoveExtenralAgent(Agent agent, Region localRegion, Map<String, Region> regions, ExternalCredential cred) {
         Region targetRegion = regions.get(cred.getRegionName());
         if (targetRegion == null) {
-            log.error(String.format("Failed to find target region by name [%s]", cred.getRegionName()));
+            log.info(String.format("Failed to find target region by name [%s]", cred.getRegionName()));
             return true;
         }
 
@@ -322,12 +349,12 @@ public class RegionServiceImpl implements RegionService {
                     envName));
             ExternalProject targetResourceAccount = getTargetProjectByName(targetRegion, envName);
             if (targetResourceAccount == null) {
-                log.debug(String.format("Failed to find target environment by name [%s] in region [%s]", envName, regionName));
+                log.info(String.format("Failed to find target environment by name [%s] in region [%s]", envName, regionName));
                 return true;
             }
             ExternalAgent externalAgent = getExternalAgent(targetRegion, cred.getAgentUuid());
             if (externalAgent == null) {
-                log.debug(String.format("Failed to find agent by externalId [%s] in environment [%s] and region [%s]", agent.getUuid(), regionName,
+                log.info(String.format("Failed to find agent by externalId [%s] in environment [%s] and region [%s]", agent.getUuid(), regionName,
                         envName));
                 return true;
             }
@@ -346,12 +373,13 @@ public class RegionServiceImpl implements RegionService {
                     return null;
                 }
             });
-        } catch (IOException e) {
-            log.error(String.format("Failed to deactivate agent with externalId [%s] in environment [%s] and region [%s]", agent.getUuid(), regionName,
-                    envName));
+            return true;
+        } catch (Exception e) {
+            log.error(
+                    String.format("Failed to deactivate agent with externalId [%s] in environment [%s] and region [%s]", agent.getUuid(), regionName, envName),
+                    e);
             return false;
         }
-        return true;
     }
 
     protected ExternalAgent createExternalAgent(Region targetRegion, String targetEnvName, Map<String, Object> params) throws IOException {
@@ -463,7 +491,7 @@ public class RegionServiceImpl implements RegionService {
         String uri = String.format("%s/v2-beta/accountLinks?linkedRegion=%s&linkedAccount=%s",
                 getUrl(targetRegion),
                 localRegionName,
-                localAccountName);
+                URLEncoder.encode(localAccountName, "UTF-8"));
         Request req = Request.Get(uri);
         setHeaders(req, targetRegion);
         List<ExternalAccountLink> links = req.execute().handleResponse(new ResponseHandler<List<ExternalAccountLink>>() {
@@ -495,7 +523,8 @@ public class RegionServiceImpl implements RegionService {
         }
     }
 
-    private void getEnvironmentsLinkedFromLocal(long accountId, Set<String> links, Map<Long, Region> regionsIds) {
+    private void getEnvironmentsLinkedFromLocal(long accountId, Set<String> links, Map<Long, Region> regionsIds,
+            Map<String, ExternalProject> externalProjects) {
         List<AccountLink> accountLinks = objectManager.find(AccountLink.class, ACCOUNT_LINK.ACCOUNT_ID,
                 accountId, ACCOUNT_LINK.REMOVED, null, ACCOUNT_LINK.LINKED_REGION_ID, new Condition(ConditionType.NOTNULL));
 
@@ -508,7 +537,25 @@ public class RegionServiceImpl implements RegionService {
             if (targetRegion == null) {
                 continue;
             }
-            links.add(getUUID(targetRegion.getName(), link.getLinkedAccount()));
+            // check if target account exists
+            ExternalProject targetResourceAccount;
+            String UUID = getUUID(targetRegion.getName(), link.getLinkedAccount());
+            if (externalProjects.containsKey(UUID)) {
+                targetResourceAccount = externalProjects.get(UUID);
+            } else {
+                try {
+                    targetResourceAccount = getTargetProjectByName(targetRegion, link.getLinkedAccount());
+                    externalProjects.put(UUID, targetResourceAccount);
+                } catch (IOException e) {
+                    throw new RuntimeException(
+                            String.format("Failed to fetch environment [%s] in region [%s]", link.getLinkedAccount(), targetRegion.getName()), e);
+                }
+                if (targetResourceAccount == null || INVALID_STATES.contains(targetResourceAccount.getState())) {
+                    log.info(String.format("Environment [%s] can't be found in region [%s]", link.getLinkedAccount(), targetRegion));
+                    continue;
+                }
+                links.add(getUUID(targetRegion.getName(), link.getLinkedAccount()));
+            }
         }
     }
 
@@ -533,7 +580,7 @@ public class RegionServiceImpl implements RegionService {
                 }
             });
         } catch (IOException e) {
-            return null;
+            throw new RuntimeException(String.format("Failed to fetch environment by id [%s] in region [%s]", accountId, targetRegion), e);
         }
     }
 
@@ -666,6 +713,7 @@ public class RegionServiceImpl implements RegionService {
         String id;
         String name;
         String uuid;
+        String state;
 
         public String getId() {
             return id;
@@ -689,6 +737,14 @@ public class RegionServiceImpl implements RegionService {
 
         public void setUuid(String uuid) {
             this.uuid = uuid;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public void setState(String state) {
+            this.state = state;
         }
     }
 }

@@ -835,3 +835,5 @@ def test_region_selector(client, image_uuid):
     rule = lb["port_rules"][0]
     assert rule["region"] == "foo"
     assert rule["environment"] == "bar"
+
+    client.wait_success(lb_svc.remove())

@@ -655,6 +655,8 @@ def test_set_external_links_validation(client, context):
     assert "foo/bar/foo/bar:link1" in ls
     assert "bar/foo/bar/foo:link2" in ls
 
+    client.wait_success(svc.remove())
+
 
 def _validate_add_service_link_name(service,
                                     consumedService, client,
