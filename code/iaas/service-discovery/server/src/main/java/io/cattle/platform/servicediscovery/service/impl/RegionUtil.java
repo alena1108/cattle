@@ -2,10 +2,10 @@ package io.cattle.platform.servicediscovery.service.impl;
 
 import io.cattle.platform.core.constants.AgentConstants;
 import io.cattle.platform.core.constants.CommonStatesConstants;
+import io.cattle.platform.core.model.Account;
 import io.cattle.platform.core.model.Agent;
 import io.cattle.platform.core.model.Region;
 import io.cattle.platform.json.JsonMapper;
-import io.cattle.platform.servicediscovery.service.impl.RegionUtil.ExternalProject;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -51,13 +51,12 @@ public class RegionUtil {
         return req;
     }
 
-    public static ExternalAccountLink getExternalAccountLink(Region targetRegion, ExternalProject targetResourceAccount, ExternalRegion externalRegion,
-            String accountName, JsonMapper jsonMapper) throws IOException {
-        String uri = String.format("%s/v2-beta/accountLinks?accountId=%s&linkedAccount=%s&linkedRegionId=%s&external=true",
+    public static ExternalAccountLink getExternalAccountLink(Region targetRegion, ExternalProject targetResourceAccount, Account localAccount,
+            JsonMapper jsonMapper) throws IOException {
+        String uri = String.format("%s/v2-beta/accountLinks?accountId=%s&linkedAccount=%s&external=true",
                 getUrl(targetRegion),
                 targetResourceAccount.getId(),
-                accountName,
-                externalRegion.getId());
+                localAccount.getName());
         Request req = Request.Get(uri);
         setHeaders(req, targetRegion);
         return req.execute().handleResponse(new ResponseHandler<ExternalAccountLink>() {
@@ -71,7 +70,10 @@ public class RegionUtil {
                     if (invalidStates.contains(link.getState())) {
                         continue;
                     }
-                    return link;
+
+                    if (link.getLinkedAccountUUID().equalsIgnoreCase(localAccount.getUuid())) {
+                        return link;
+                    }
                 }
                 return null;
             }
@@ -292,6 +294,7 @@ public class RegionUtil {
         boolean external;
         String state;
         String id;
+        String linkedAccountUUID;
 
         public String getAccountId() {
             return accountId;
@@ -348,6 +351,15 @@ public class RegionUtil {
         public void setId(String id) {
             this.id = id;
         }
+
+        public String getLinkedAccountUUID() {
+            return linkedAccountUUID;
+        }
+
+        public void setLinkedAccountUUID(String linkedAccountUUID) {
+            this.linkedAccountUUID = linkedAccountUUID;
+        }
+
     }
 
     public static class ExternalProjectData {
