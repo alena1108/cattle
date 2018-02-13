@@ -1,25 +1,23 @@
 package io.cattle.platform.servicediscovery.process;
 
+import static io.cattle.platform.core.model.tables.AccountLinkTable.*;
+import static io.cattle.platform.core.model.tables.AccountTable.*;
+import static io.cattle.platform.core.model.tables.AgentTable.*;
+import static io.cattle.platform.core.model.tables.RegionTable.*;
+
 import io.cattle.platform.core.constants.AccountConstants;
 import io.cattle.platform.core.constants.CommonStatesConstants;
 import io.cattle.platform.core.model.Account;
 import io.cattle.platform.core.model.AccountLink;
 import io.cattle.platform.core.model.Agent;
 import io.cattle.platform.core.model.Region;
-
-import static io.cattle.platform.core.model.tables.AccountTable.ACCOUNT;
-import static io.cattle.platform.core.model.tables.AccountLinkTable.ACCOUNT_LINK;
-import static io.cattle.platform.core.model.tables.RegionTable.REGION;
-import static io.cattle.platform.core.model.tables.AgentTable.AGENT;
 import io.cattle.platform.db.jooq.dao.impl.AbstractJooqDao;
-import io.cattle.platform.engine.handler.HandlerResult;
-import io.cattle.platform.engine.process.ExitReason;
-import io.cattle.platform.engine.process.ProcessInstance;
-import io.cattle.platform.engine.process.ProcessState;
+import io.cattle.platform.engine.manager.ProcessNotFoundException;
+import io.cattle.platform.engine.process.impl.ProcessCancelException;
 import io.cattle.platform.json.JsonMapper;
 import io.cattle.platform.object.ObjectManager;
 import io.cattle.platform.object.process.ObjectProcessManager;
-import io.cattle.platform.process.base.AbstractDefaultProcessHandler;
+import io.cattle.platform.object.process.StandardProcess;
 import io.cattle.platform.object.util.DataAccessor;
 import io.cattle.platform.servicediscovery.service.RegionService;
 import io.cattle.platform.servicediscovery.service.impl.RegionServiceImpl;
@@ -29,15 +27,15 @@ import io.cattle.platform.servicediscovery.service.impl.RegionUtil.ExternalProje
 import io.cattle.platform.servicediscovery.service.impl.RegionUtil.ExternalProjectResponse;
 import io.cattle.platform.servicediscovery.service.impl.RegionUtil.ExternalRegion;
 import io.cattle.platform.task.Task;
-import io.cattle.platform.object.process.StandardProcess;
+
 import io.github.ibuildthecloud.gdapi.condition.Condition;
 import io.github.ibuildthecloud.gdapi.condition.ConditionType;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
 
@@ -49,7 +47,6 @@ public class RegionMonitor extends AbstractJooqDao implements Task{
     private static List<String> invalidStates = Arrays.asList(CommonStatesConstants.REGISTERING, CommonStatesConstants.REMOVING, 
         CommonStatesConstants.REMOVED);
     private static List<String> removedStates = Arrays.asList(CommonStatesConstants.REMOVING, CommonStatesConstants.REMOVED);
-    AgentRemove agentRemove = new AgentRemove();
 
     @Inject
     ObjectProcessManager objectProcessManager;
@@ -75,17 +72,21 @@ public class RegionMonitor extends AbstractJooqDao implements Task{
                 localRegion = region;
             }
         }
-        Map<String, ExternalRegion> externalRegionMap = new HashMap<String, ExternalRegion>();
-        Map<String, ExternalProjectResponse> externalProjectMap = new HashMap<String, ExternalProjectResponse>();
+        
         HashSet<String> existingLinks = new HashSet<String>();
-        
-        List<AccountLink> accountLinks = objectManager.find(AccountLink.class, ACCOUNT_LINK.REMOVED, null, ACCOUNT_LINK.LINKED_REGION_ID, 
-            new Condition(ConditionType.NOTNULL));
-        
-        cleanLinks(accountLinks, externalRegionMap, externalProjectMap, regionMap, existingLinks, localRegion);
+
+        cleanLinks(regionMap, existingLinks, localRegion);
         
         cleanAgents(existingLinks);
                 
+        reconcileAccountLinks();
+    }
+
+    private void reconcileAccountLinks() {
+        List<Region> regions = objectManager.find(Region.class, REGION.REMOVED, new Condition(ConditionType.NULL));
+        if (regions.size() == 0) {
+            return;
+        }
         List<Account> accounts = objectManager.find(Account.class, ACCOUNT.KIND, AccountConstants.PROJECT_KIND, 
             ACCOUNT.REMOVED, new Condition(ConditionType.NULL));
         for(Account account : accounts) {
@@ -97,9 +98,14 @@ public class RegionMonitor extends AbstractJooqDao implements Task{
         }
     }
 
-    private void cleanLinks (List<AccountLink> accountLinks, Map<String, ExternalRegion> externalRegionMap, 
-            Map<String, ExternalProjectResponse> externalProjectMap, Map<Long, Region> regionMap, HashSet<String> existingLinks, 
+    private void cleanLinks(Map<Long, Region> regionMap, HashSet<String> existingLinks,
             Region localRegion) {
+        Map<String, ExternalRegion> externalRegionMap = new HashMap<String, ExternalRegion>();
+        Map<String, ExternalProjectResponse> externalProjectMap = new HashMap<String, ExternalProjectResponse>();
+
+
+        List<AccountLink> accountLinks = objectManager.find(AccountLink.class, ACCOUNT_LINK.REMOVED, null, ACCOUNT_LINK.LINKED_REGION_ID,
+                new Condition(ConditionType.NOTNULL));
         for(AccountLink link : accountLinks) {
             if (invalidStates.contains(link.getState())) {
                 continue;
@@ -173,30 +179,36 @@ public class RegionMonitor extends AbstractJooqDao implements Task{
         
         if(agents.size() > 0) { 
             for(Agent agent : agents) {
-                String[] uri = agent.getUri().substring(RegionUtil.EXTERNAL_AGENT_URI_PREFIX.length()).split("_");
-                String regionEnv = String.format("%s:%s", uri[0], uri[1]);
-                if(existingLinks.contains(regionEnv)) {
-                    continue; 
+                try {
+                    String[] uri = agent.getUri().substring(RegionUtil.EXTERNAL_AGENT_URI_PREFIX.length()).split("_");
+                    String regionEnv = String.format("%s:%s", uri[0], uri[1]);
+                    if (existingLinks.contains(regionEnv)) {
+                        continue;
+                    }
+                    cleanupAgent(agent);
+                } catch (Exception ex) {
+                    log.warn(String.format("Fail to remove agent ", agent.getId(), ex));
                 }
-                agentRemove.deactivateThenRemove(agent, null);
             }
         }
     }
     
+    private void cleanupAgent(Agent agent) {
+        try {
+            objectProcessManager.executeStandardProcess(StandardProcess.DEACTIVATE, agent, null);
+            agent = objectManager.reload(agent);
+        } catch (ProcessCancelException e) {
+            // ignore
+        } catch (ProcessNotFoundException e) {
+            // ignore
+        }
+
+        objectProcessManager.executeStandardProcess(StandardProcess.REMOVE, agent, null);
+    }
+
     @Override
     public String getName() {
         return "region.monitor";
-    }
-    
-    public static class AgentRemove extends AbstractDefaultProcessHandler {
-        @Override
-        public HandlerResult handle(final ProcessState state, ProcessInstance process) {
-                return null;
-        }
-        
-            public ExitReason deactivateThenRemove(Object obj, Map<String, Object> data) {
-                return super.deactivateThenRemove(obj, data);
-            }
     }
 
 }
